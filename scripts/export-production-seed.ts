@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
 async function main() {
   const users = await prisma.user.findMany();
   const batches = await prisma.batch.findMany();
-  const batchMedicineIds = [...new Set(batches.map((b) => b.medicineId))];
+  const batchMedicineIds = Array.from(new Set(batches.map((b) => b.medicineId)));
 
   const medicines = await prisma.medicine.findMany({
     where: {
