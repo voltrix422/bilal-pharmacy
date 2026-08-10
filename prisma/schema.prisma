@@ -1,0 +1,617 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Local default: SQLite. Vercel uses prisma/schema.postgres.prisma (copied in vercel-build).
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  PHARMACIST
+  CASHIER
+  MANAGER
+  CUSTOMER
+}
+
+enum MedicineUnit {
+  TABLET
+  CAPSULE
+  SYRUP
+  INJECTION
+  CREAM
+  DROPS
+  INHALER
+  PATCH
+  SUPPOSITORY
+  OTHER
+}
+
+enum POStatus {
+  DRAFT
+  SENT
+  CONFIRMED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum LocationType {
+  MAIN_STORE
+  REFRIGERATOR
+  COUNTER
+  VAULT
+}
+
+enum SaleStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  INSURANCE
+  MOBILE_PAYMENT
+}
+
+enum PrescriptionStatus {
+  PENDING
+  VERIFIED
+  DISPENSED
+  EXPIRED
+  CANCELLED
+}
+
+enum AdjustmentType {
+  RECEIVED
+  SOLD
+  RETURNED
+  DAMAGED
+  EXPIRED
+  TRANSFERRED
+  CORRECTION
+}
+
+enum ReturnType {
+  CUSTOMER_RETURN
+  SUPPLIER_RETURN
+}
+
+enum ReturnStatus {
+  PENDING
+  APPROVED
+  COMPLETED
+  REJECTED
+}
+
+enum NotificationType {
+  LOW_STOCK
+  EXPIRY_WARNING
+  EXPIRY_CRITICAL
+  NEW_ORDER
+  PRESCRIPTION_PENDING
+  PAYMENT_DUE
+  SYSTEM
+}
+
+enum OnlineOrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?
+  name          String
+  role          Role      @default(CASHIER)
+  avatar        String?
+  phone         String?
+  address       String?
+  city          String?
+  /** JSON map of module → none|view|edit. Empty/null = use role defaults. */
+  moduleAccess  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLogin     DateTime?
+  isActive      Boolean   @default(true)
+
+  purchaseOrders PurchaseOrder[] @relation("POCreator")
+  sales          Sale[]          @relation("CashierSales")
+  adjustments    StockAdjustment[]
+  returns        Return[]        @relation("ReturnProcessor")
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  settings       Setting[]       @relation("SettingUpdater")
+  accounts       Account[]
+  sessions       Session[]
+  onlineOrders   OnlineOrder[]   @relation("WebsiteCustomerOrders")
+
+  @@index([email])
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Medicine {
+  id                   String       @id @default(cuid())
+  name                 String
+  genericName          String?
+  brand                String?
+  category             String
+  description          String?
+  sku                  String       @unique
+  barcode              String?      @unique
+  unit                 MedicineUnit @default(TABLET)
+  strength             String?
+  manufacturer         String?
+  country              String?
+  requiresPrescription Boolean      @default(false)
+  isControlled         Boolean      @default(false)
+  isActive             Boolean      @default(true)
+  imageUrl             String?
+  minStockLevel        Int          @default(10)
+  reorderPoint         Int          @default(20)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  batches            Batch[]
+  purchaseOrderItems PurchaseOrderItem[]
+  saleItems          SaleItem[]
+  prescriptionItems  PrescriptionItem[]
+  adjustments        StockAdjustment[]
+  returnItems        ReturnItem[]
+
+  @@index([name])
+  @@index([category])
+  @@index([sku])
+  @@index([barcode])
+}
+
+model Supplier {
+  id            String   @id @default(cuid())
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String?
+  address       String?
+  city          String?
+  country       String?
+  taxId         String?
+  paymentTerms  String?
+  isActive      Boolean  @default(true)
+  rating        Float?   @default(0)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+  batches        Batch[]
+
+  @@index([name])
+}
+
+model PurchaseOrder {
+  id           String   @id @default(cuid())
+  poNumber     String   @unique
+  supplierId   String
+  status       POStatus @default(DRAFT)
+  expectedDate DateTime?
+  notes        String?
+  totalAmount  Float    @default(0)
+  createdById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  supplier  Supplier            @relation(fields: [supplierId], references: [id])
+  createdBy User                @relation("POCreator", fields: [createdById], references: [id])
+  items     PurchaseOrderItem[]
+
+  @@index([poNumber])
+  @@index([status])
+  @@index([supplierId])
+}
+
+model PurchaseOrderItem {
+  id               String    @id @default(cuid())
+  purchaseOrderId  String
+  medicineId       String
+  quantity         Int
+  receivedQuantity Int       @default(0)
+  unitCost         Float
+  totalCost        Float
+  batchNumber      String?
+  expiryDate       DateTime?
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  medicine      Medicine      @relation(fields: [medicineId], references: [id])
+
+  @@index([purchaseOrderId])
+  @@index([medicineId])
+}
+
+model StockLocation {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  type        LocationType @default(MAIN_STORE)
+  isActive    Boolean      @default(true)
+
+  batches Batch[]
+}
+
+model Batch {
+  id                String   @id @default(cuid())
+  medicineId        String
+  supplierId        String?
+  batchNumber       String
+  quantity          Int
+  remainingQuantity Int
+  unitCost          Float
+  sellingPrice      Float
+  expiryDate        DateTime
+  receivedDate      DateTime @default(now())
+  locationId        String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  medicine    Medicine         @relation(fields: [medicineId], references: [id])
+  supplier    Supplier?        @relation(fields: [supplierId], references: [id])
+  location    StockLocation?   @relation(fields: [locationId], references: [id])
+  saleItems   SaleItem[]
+  adjustments StockAdjustment[]
+  returnItems ReturnItem[]
+
+  @@unique([medicineId, batchNumber])
+  @@index([medicineId])
+  @@index([expiryDate])
+  @@index([batchNumber])
+}
+
+model Customer {
+  id                String    @id @default(cuid())
+  name              String
+  email             String?
+  phone             String?
+  dateOfBirth       DateTime?
+  gender            String?
+  address           String?
+  allergies         String?
+  medicalHistory    String?
+  insuranceProvider String?
+  insuranceNumber   String?
+  loyaltyPoints     Int       @default(0)
+  outstandingBalance Float    @default(0)
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  sales         Sale[]
+  prescriptions Prescription[]
+  returns       Return[]
+
+  @@index([name])
+  @@index([phone])
+  @@index([email])
+  @@index([isActive])
+}
+
+model Prescription {
+  id                 String             @id @default(cuid())
+  prescriptionNumber String             @unique
+  customerId         String
+  doctorName         String
+  doctorLicense      String?
+  hospitalClinic     String?
+  issuedDate         DateTime
+  expiryDate         DateTime?
+  status             PrescriptionStatus @default(PENDING)
+  imageUrl           String?
+  notes              String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  customer Customer           @relation(fields: [customerId], references: [id])
+  items    PrescriptionItem[]
+  sales    Sale[]
+
+  @@index([prescriptionNumber])
+  @@index([customerId])
+  @@index([status])
+}
+
+model PrescriptionItem {
+  id                String  @id @default(cuid())
+  prescriptionId    String
+  medicineId        String
+  dosage            String
+  frequency         String
+  duration          String?
+  quantity          Int
+  dispensedQuantity Int     @default(0)
+  notes             String?
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicine     Medicine     @relation(fields: [medicineId], references: [id])
+
+  @@index([prescriptionId])
+}
+
+model Sale {
+  id             String        @id @default(cuid())
+  saleNumber     String        @unique
+  customerId     String?
+  cashierId      String
+  prescriptionId String?
+  status         SaleStatus    @default(PENDING)
+  paymentMethod  PaymentMethod @default(CASH)
+  subtotal       Float         @default(0)
+  discount       Float         @default(0)
+  tax            Float         @default(0)
+  total          Float         @default(0)
+  amountPaid     Float         @default(0)
+  change         Float         @default(0)
+  notes          String?
+  loyaltyRedeemed Int          @default(0)
+  loyaltyEarned   Int          @default(0)
+  isHeld         Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  cashier      User          @relation("CashierSales", fields: [cashierId], references: [id])
+  prescription Prescription? @relation(fields: [prescriptionId], references: [id])
+  items        SaleItem[]
+  returns      Return[]
+
+  @@index([saleNumber])
+  @@index([cashierId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SaleItem {
+  id         String  @id @default(cuid())
+  saleId     String
+  batchId    String
+  medicineId String
+  quantity   Int
+  unitPrice  Float
+  discount   Float   @default(0)
+  total      Float
+
+  sale     Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  batch    Batch    @relation(fields: [batchId], references: [id])
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+
+  @@index([saleId])
+  @@index([medicineId])
+}
+
+model StockAdjustment {
+  id               String         @id @default(cuid())
+  batchId          String
+  medicineId       String
+  type             AdjustmentType
+  quantityChange   Int
+  previousQuantity Int
+  newQuantity      Int
+  reason           String?
+  performedById    String
+  createdAt        DateTime       @default(now())
+
+  batch       Batch    @relation(fields: [batchId], references: [id])
+  medicine    Medicine @relation(fields: [medicineId], references: [id])
+  performedBy User     @relation(fields: [performedById], references: [id])
+
+  @@index([batchId])
+  @@index([medicineId])
+  @@index([createdAt])
+}
+
+model Return {
+  id            String       @id @default(cuid())
+  returnNumber  String       @unique
+  saleId        String?
+  customerId    String?
+  type          ReturnType
+  status        ReturnStatus @default(PENDING)
+  reason        String?
+  totalRefund   Float        @default(0)
+  processedById String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  sale        Sale?        @relation(fields: [saleId], references: [id])
+  customer    Customer?    @relation(fields: [customerId], references: [id])
+  processedBy User         @relation("ReturnProcessor", fields: [processedById], references: [id])
+  items       ReturnItem[]
+
+  @@index([returnNumber])
+  @@index([status])
+}
+
+model ReturnItem {
+  id           String  @id @default(cuid())
+  returnId     String
+  medicineId   String
+  batchId      String?
+  quantity     Int
+  unitPrice    Float
+  refundAmount Float
+  reason       String?
+
+  return   Return   @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+  batch    Batch?   @relation(fields: [batchId], references: [id])
+
+  @@index([returnId])
+}
+
+model Notification {
+  id          String               @id @default(cuid())
+  userId      String?
+  type        NotificationType
+  title       String
+  message     String
+  isRead      Boolean              @default(false)
+  priority    NotificationPriority @default(MEDIUM)
+  relatedId   String?
+  relatedType String?
+  createdAt   DateTime             @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  oldValues Json?
+  newValues Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+model Setting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  category    String
+  description String?
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  updatedBy User? @relation("SettingUpdater", fields: [updatedById], references: [id])
+
+  @@index([category])
+}
+
+/// Products visible on the public order portal
+model WebsiteProduct {
+  id                   String   @id @default(cuid())
+  medicineId           String?
+  name                 String
+  slug                 String   @unique
+  description          String?
+  category             String
+  price                Float
+  compareAtPrice       Float?
+  imageUrl             String?
+  unitLabel            String   @default("pack")
+  requiresPrescription Boolean  @default(false)
+  isActive             Boolean  @default(true)
+  sortOrder            Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  orderItems OnlineOrderItem[]
+
+  @@index([isActive])
+  @@index([category])
+  @@index([sortOrder])
+}
+
+model OnlineOrder {
+  id             String            @id @default(cuid())
+  orderNumber    String            @unique
+  customerUserId String?
+  customerName   String
+  customerPhone  String
+  customerEmail  String?
+  address        String
+  city           String?
+  notes          String?
+  status         OnlineOrderStatus @default(PENDING)
+  subtotal       Float
+  deliveryFee    Float             @default(0)
+  total          Float
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  customerUser User?             @relation("WebsiteCustomerOrders", fields: [customerUserId], references: [id])
+  items        OnlineOrderItem[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([orderNumber])
+  @@index([customerUserId])
+}
+
+model OnlineOrderItem {
+  id        String @id @default(cuid())
+  orderId   String
+  productId String
+  name      String
+  quantity  Int
+  unitPrice Float
+  total     Float
+
+  order   OnlineOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product WebsiteProduct @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}

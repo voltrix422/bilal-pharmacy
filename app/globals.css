@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Soft charcoal monochrome (light) */
+    --background: 0 0% 100%;
+    --foreground: 240 4% 26%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 4% 26%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 4% 26%;
+
+    --primary: 240 4% 34%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 4% 34%;
+
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+
+    --accent: 240 5% 96%;
+    --accent-foreground: 240 4% 34%;
+
+    --destructive: 240 4% 34%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 5% 88%;
+    --input: 240 5% 88%;
+    --ring: 240 4% 64%;
+    --stroke: 240 4% 62%;
+
+    --radius: 0.5rem;
+
+    --success: 240 4% 34%;
+    --success-foreground: 0 0% 100%;
+    --warning: 240 4% 34%;
+    --warning-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    /* Blue-black mix — navy slate, not pure black */
+    --background: 222 32% 11%;
+    --foreground: 214 28% 90%;
+
+    --card: 222 28% 14%;
+    --card-foreground: 214 28% 90%;
+
+    --popover: 222 28% 15%;
+    --popover-foreground: 214 28% 90%;
+
+    --primary: 214 32% 82%;
+    --primary-foreground: 222 32% 12%;
+
+    --secondary: 222 24% 18%;
+    --secondary-foreground: 214 24% 88%;
+
+    --muted: 222 22% 17%;
+    --muted-foreground: 215 16% 62%;
+
+    --accent: 222 24% 18%;
+    --accent-foreground: 214 24% 88%;
+
+    --destructive: 214 28% 82%;
+    --destructive-foreground: 222 32% 12%;
+
+    --border: 217 22% 24%;
+    --input: 217 22% 24%;
+    --ring: 215 28% 48%;
+    --stroke: 215 22% 46%;
+
+    --success: 214 28% 82%;
+    --success-foreground: 222 32% 12%;
+    --warning: 214 28% 82%;
+    --warning-foreground: 222 32% 12%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-size: 13px;
+  }
+
+  html,
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    line-height: 1.4;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  button,
+  input,
+  textarea,
+  select,
+  .font-display,
+  .font-sans,
+  .font-mono {
+    font-family: inherit;
+  }
+
+  .dark body {
+    background-color: hsl(var(--background));
+  }
+}
+
+@layer utilities {
+  .border-stroke {
+    border-color: hsl(var(--stroke));
+  }
+  .text-stroke {
+    color: hsl(var(--stroke));
+  }
+  .ring-stroke {
+    --tw-ring-color: hsl(var(--stroke));
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0.96;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-page-enter {
+  animation: page-enter 0.12s ease-out both;
+}
+
+@keyframes nav-progress {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+/* Public pharmacy site — blue text motion */
+@keyframes blue-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes blue-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes blue-underline {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.animate-blue-rise {
+  animation: blue-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-blue-text {
+  background: linear-gradient(105deg, #123024 0%, #1d9851 40%, #4caf75 70%, #123024 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: blue-shimmer 4.5s linear infinite;
+}
+
+.animate-blue-line {
+  transform-origin: left;
+  animation: blue-underline 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}

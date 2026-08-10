@@ -1,0 +1,7 @@
+{
+  "buildCommand": "npm run vercel-build",
+  "crons": [
+    { "path": "/api/cron/daily-checks", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/hourly-checks", "schedule": "0 * * * *" }
+  ]
+}
