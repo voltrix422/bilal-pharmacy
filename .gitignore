@@ -42,3 +42,5 @@ prisma/dev.db-journal
 
 
 scripts/drap-products.json
+.vercel
+.env*
