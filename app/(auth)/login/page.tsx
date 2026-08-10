@@ -2,7 +2,7 @@
 
 import { Suspense, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -79,9 +79,8 @@ function UnderlineField({
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const authError = searchParams.get("error");
 
   const [email, setEmail] = useState("");
@@ -120,8 +119,12 @@ function LoginForm() {
       }
 
       toast.success("Welcome back to Bilal Pharmacy");
-      router.push(callbackUrl);
-      router.refresh();
+      // Hard navigate so the session cookie is applied before ERP loads
+      const next =
+        callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")
+          ? callbackUrl
+          : "/dashboard";
+      window.location.assign(next);
     } catch {
       const message = "Something went wrong. Please try again.";
       setFormError(message);
